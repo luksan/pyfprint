@@ -305,6 +305,9 @@ class Device:
 class Minutia(pyf.fp_minutia):
 	"""A single point of interest in a fingerprint."""
 	def __init__(self, minutia_ptr, img):
+		# We need to keep a reference to the image,
+		# since the pointer we're referring to might
+		# be free'd otherwise
 		self.img = img
 		self.ptr = minutia_ptr
 		pyf.fp_minutia.__init__(self, minutia_ptr)
@@ -341,16 +344,25 @@ class Image:
 		"""
 		return pyf.pyfp_img_get_rgb_data(self._img)
 
-	def save_to_file(self, path):
-		r = pyf.fp_img_save_to_file(self._img, path)
+	def save_to_file(self, filename):
+		"""Save the image as a pgm file."""
+		r = pyf.fp_img_save_to_file(self._img, filename)
 		if r != 0:
 			raise "Save failed"
 
 	def standardize(self):
+		"""Normalize orientation and colors of the image."""
 		pyf.fp_img_standardize(self._img)
-		self.std = True
+		self._std = True
 
 	def binarize(self):
+		"""
+		Return the image converted to a black/white binary image of the print.
+		The returned Image is a copy of the original. The old image remains
+		un-binarized.
+
+		This will standardize() the image, if it isn't already so.
+		"""
 		if self._bin:
 			return
 		if not self._std:
@@ -358,9 +370,16 @@ class Image:
 		i = pyf.fp_img_binarize(self._img)
 		if i == None:
 			raise "Binarize failed"
-		return Image(img_ptr = i, bin = True)
+		i = Image(img_ptr = i, bin = True)
+		i._minutiae = self._minutiae
+		return i
 
 	def minutiae(self):
+		"""
+		Return a list of the minutiae found in the image.
+
+		This method will fail on a binarized image.
+		"""
 		if self._minutiae:
 			return self._minutiae
 		if self._bin:

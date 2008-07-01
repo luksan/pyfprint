@@ -46,8 +46,9 @@ def fp_exit():
 	pyf.fp_exit()
 	_init_ok = False
 
+# """Enumeration of the different fingers, used when using Fprint.save_to_disk()."""
 Fingers = dict(
-	"""Enumeration of the different fingers, used when using Fprint.save_to_disk()."""
+	
 	LEFT_THUMB = pyf.LEFT_THUMB,
 	LEFT_INDEX = pyf.LEFT_INDEX,
 	LEFT_MIDDLE = pyf.LEFT_MIDDLE,
@@ -85,7 +86,7 @@ class Device:
 		if not self.dev:
 			raise "device open failed"
 
-	def get_driver(self):
+	def driver(self):
 		"""
 		Return a Driver instance.
 
@@ -96,7 +97,7 @@ class Device:
 		if self.dscv:
 			return Driver(pyf.fp_dscv_dev_get_driver(self.dscv))
 
-	def get_devtype(self):
+	def devtype(self):
 		"""
 		Return an integer representing the type of device.
 
@@ -107,7 +108,7 @@ class Device:
 		if self.dscv:
 			return pyf.fp_dscv_dev_get_devtype(self.dev)
 
-	def get_nr_enroll_stages(self):
+	def nr_enroll_stages(self):
 		"""
 		Return how many times enroll_finger needs to be called
 		before the finger is successfully enrolled.
@@ -136,19 +137,19 @@ class Device:
 			raise "No print found"
 		raise "No device found"
 
-	def get_supports_imaging(self):
+	def supports_imaging(self):
 		"""If true, the device can return an image of the finger."""
 		if self.dev:
 			return pyf.fp_dev_supports_imaging(self.dev) == 1
 		raise "Device not open"
 
-	def get_img_width(self):
+	def img_width(self):
 		"""Return the width of the images scanned by the device, in pixels."""
 		if self.dev:
 			return pyf.fp_dev_get_img_width(self.dev)
 		raise "Device not open"
 
-	def get_img_height(self):
+	def img_height(self):
 		"""Return the height of the images scanned by the device, in pixels."""
 		if self.dev:
 			return pyf.fp_dev_get_img_height(self.dev)
@@ -163,7 +164,7 @@ class Device:
 		if not self.dev:
 			raise "Device not open"
 
-		if not self.get_supports_imaging():
+		if not self.supports_imaging():
 			return None
 
 		unconditional = 1
@@ -312,67 +313,65 @@ class Image:
 	"""An image returned from the fingerprint reader."""
 	def __init__(self, img_ptr, bin = False):
 		"""Private method."""
-		self.img = img_ptr
-		self.bin = bin
-		self.std = False
-		self.minutiae = None
+		self._img = img_ptr
+		self._bin = bin
+		self._std = False
+		self._minutiae = None
 
 	def __del__(self):
-		if self.img:
-			pyf.fp_img_free(self.img)
+		if self._img:
+			pyf.fp_img_free(self._img)
 
-	def get_height(self):
+	def height(self):
 		"""The height of the image in pixels."""
-		return pyf.fp_img_get_height(self.img)
-	def get_width(self):
+		return pyf.fp_img_get_height(self._img)
+	def width(self):
 		"""The width of the image in pixels."""
-		return pyf.fp_img_get_width(self.img)
+		return pyf.fp_img_get_width(self._img)
 
-	def get_data(self):
+	def data(self):
 		"""
-		FIXME: vector?
-		Return a vector containing one byte per pixel, representing a grayscale image.
+		Return a string containing one byte per pixel, representing a grayscale image.
 		"""
-		return pyf.pyfp_img_get_data(self.img)
+		return pyf.pyfp_img_get_data(self._img)
 
-	def get_rgb_data(self):
+	def rgb_data(self):
 		"""
-		FIXME: vector?
-		Return a vector containing three bytes per pixel, representing a gray RGB image.
+		Return a string containing three bytes per pixel, representing a gray RGB image.
 		"""
-		return pyf.pyfp_img_get_rgb_data(self.img)
+		return pyf.pyfp_img_get_rgb_data(self._img)
 
 	def save_to_file(self, path):
-		r = pyf.fp_img_save_to_file(self.img, path)
+		r = pyf.fp_img_save_to_file(self._img, path)
 		if r != 0:
 			raise "Save failed"
 
 	def standardize(self):
-		pyf.fp_img_standardize(self.img)
+		pyf.fp_img_standardize(self._img)
 		self.std = True
 
 	def binarize(self):
-		if self.bin:
+		if self._bin:
 			return
-		if not self.std:
+		if not self._std:
 			self.standardize()
-		i = pyf.fp_img_binarize(self.img)
+		i = pyf.fp_img_binarize(self._img)
 		if i == None:
 			raise "Binarize failed"
 		return Image(img_ptr = i, bin = True)
 
-	def get_minutiae(self):
-		if self.minutiae:
-			return self.minutiae
-		if self.bin:
+	def minutiae(self):
+		if self._minutiae:
+			return self._minutiae
+		if self._bin:
 			raise "Cannot find minutiae in binarized image"
-		if not self.std:
+		if not self._std:
 			self.standardize()
-		(min_list, nr) = pyf.fp_img_get_minutiae(self.img)
+		(min_list, nr) = pyf.fp_img_get_minutiae(self._img)
 		l = []
 		for n in range(nr):
 			l.append(Minutia(img = self, minutia_ptr = pyf.pyfp_deref_minutiae(min_list, n)))
-		self.minutiae = l
+		self._minutiae = l
 		return l
 
 class Driver:
@@ -385,15 +384,15 @@ class Driver:
 		#FIXME: free drv?
 		pass
 
-	def get_name(self):
+	def name(self):
 		"""Return the driver name."""
 		return pyf.fp_driver_get_name(self.drv)
 
-	def get_full_name(self):
+	def full_name(self):
 		"""A longer, more desciptive version of the driver name."""
 		return pyf.fp_driver_get_full_name(self.drv)
 
-	def get_driver_id(self):
+	def driver_id(self):
 		"""Return an integer uniqly identifying the driver."""
 		return pyf.fp_driver_get_driver_id(self.drv)
 
@@ -401,14 +400,14 @@ class Fprint:
 	def __init__(self, serial_data = None, data_ptr = None, dscv_ptr = None, DscvList = None):
 		"""
 		The only parameter that should be used is serial_data, which
-		should be data previously aquired from get_data(), in the form of a string.
+		should be data previously aquired from data(), in the form of a string.
 		All other parameters are for internal use only.
 		"""
 		# data_ptr is a SWIG pointer to a struct pf_print_data
 		# dscv_ptr is a SWIG pointer to a struct pf_dscv_print
 		# DscvList is a class instance used to free the allocated pf_dscv_print's
 		#          with pf_dscv_prints_free when they're all unused.
-		# serial_data is a string as returned by get_data()
+		# serial_data is a string as returned by data()
 
 		self.data_ptr = data_ptr
 		self.dscv_ptr = dscv_ptr
@@ -431,7 +430,7 @@ class Fprint:
 			self._data_from_dscv()
 		return self.data_ptr
 
-	def get_driver_id(self):
+	def driver_id(self):
 		"""Return an integer identifing the driver used to scan this print."""
 		if self.data_ptr:
 			return pyf.fp_print_data_get_driver_id(self.data_ptr)
@@ -439,7 +438,7 @@ class Fprint:
 			return pyf.fp_dscv_print_get_driver_id(self.dscv_ptr)
 		raise "no print"
 
-	def get_devtype(self):
+	def devtype(self):
 		"""Return an integer representing the type of device used to scan this print."""
 		if self.data_ptr:
 			return pyf.fp_print_data_get_devtype(self.data_ptr)
@@ -447,13 +446,13 @@ class Fprint:
 			return pyf.fp_dscv_print_get_devtype(self.dscv_ptr)
 		raise "no print"
 
-	def get_finger(self):
+	def finger(self):
 		"""
 		If the Fprint was returned from discover_prints(), return
 		the Finger the Fprint represents. Otherwise raise an exception.
 		"""
 		if not self.dscv_ptr:
-			raise "get_finger needs a discovered print"
+			raise "finger() needs a discovered print"
 		return pyf.fp_dscv_print_get_finger(self.dscv_ptr)
 
 	def delete_from_disk(self):
@@ -485,7 +484,7 @@ class Fprint:
 			raise "print data from dscv failed"
 		self.data_ptr = ptr
 
-	def get_data(self):
+	def data(self):
 		"""
 		Return a serialized dataset representing the fprint.
 		This data could be stored away, and later passed to the

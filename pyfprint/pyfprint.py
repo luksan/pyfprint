@@ -155,27 +155,35 @@ class Device:
 		raise "Device not open"
 
 	def capture_image(self, wait_for_finger):
-		"""FIXME: check that the dev supports imaging, or check -ENOTSUP"""
+		"""
+		Captures an image from the device. Return None if imaging isn't supported.
+		wait_for_finger controls if the device should wait for a finger to be placed
+		on the sensor before image capture.
+		"""
 		if not self.dev:
 			raise "Device not open"
+
+		if not self.get_supports_imaging():
+			return None
 
 		unconditional = 1
 		if wait_for_finger == True:
 			unconditional = 0
 
 		(r, img) = pyf.pyfp_dev_img_capture(self.dev, unconditional)
+		img = Image(img)
 		if r != 0:
-			raise "image_capture failed. error: " + r
-		return Image(img)
+			raise "image_capture failed. error: %i" % r
+		return img
 
 	def enroll_finger(self):
 		"""FIXME: docstring, error handling"""
 		if not self.dev:
 			raise "Device not open"
 		(r, fprint, img) = pyf.pyfp_enroll_finger_img(self.dev)
-		if r < 0:
-			raise "Internal I/O error while enrolling"
 		img = Image(img)
+		if r < 0:
+			raise "Internal I/O error while enrolling: %i" % i
 		if r == pyf.FP_ENROLL_COMPLETE:
 			_dbg("enroll complete")
 			return (Fprint(data_ptr = fprint), img)
@@ -206,9 +214,9 @@ class Device:
 		if not self.dev:
 			raise "Device not open"
 		(r, img) = pyf.pyfp_verify_finger_img(self.dev, fprint._get_print_data_ptr())
-		if r < 0:
-			raise "verify error"
 		img = Image(img)
+		if r < 0:
+			raise "verify error: %i" % r
 		if r == pyf.FP_VERIFY_NO_MATCH:
 			return (False, img)
 		if r == pyf.FP_VERIFY_MATCH:
@@ -249,9 +257,9 @@ class Device:
 				raise "can't verify uncompatible print"
 			gallery.append(x._get_print_data_ptr())
 		(r, offset, img) = pyf.pyfp_identify_finger_img(self.dev, gallery.list)
+		img = Image(img)
 		if r < 0:
 			raise "identification error"
-		img = Image(img)
 		if r == pyf.FP_VERIFY_NO_MATCH:
 			return (None, None, img)
 		if r == pyf.FP_VERIFY_MATCH:

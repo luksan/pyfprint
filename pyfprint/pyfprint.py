@@ -36,15 +36,18 @@ def _dbg(*arg):
 	pass
 
 def fp_init():
+	"""Call this before doing anything else."""
 	_init_ok = (pyf.fp_init() == 0)
 	if not _init_ok:
 		raise "fprint initialization failed."
 
 def fp_exit():
+	"""pyfprint can't be used after this is called."""
 	pyf.fp_exit()
 	_init_ok = False
 
 Fingers = dict(
+	"""Enumeration of the different fingers, used when using Fprint.save_to_disk()."""
 	LEFT_THUMB = pyf.LEFT_THUMB,
 	LEFT_INDEX = pyf.LEFT_INDEX,
 	LEFT_MIDDLE = pyf.LEFT_MIDDLE,
@@ -58,7 +61,10 @@ Fingers = dict(
 	)
 
 class Device:
+	"""Provides access to a fingerprint reading device. Don't construct this
+	directly, use discover_devices() instead."""
 	def __init__(self, dev_ptr = None, dscv_ptr = None, DscvList = None):
+		"""For internal use only."""
 		self.dev = dev_ptr
 		self.dscv = dscv_ptr
 		self.DscvList = DscvList
@@ -66,11 +72,13 @@ class Device:
 			raise "Programming error? Device contructed with dscv without DscvList."
 
 	def close(self):
+		"""Closes the device. No more methods, except open(), may be called after this."""
 		if self.dev:
 			pyf.fp_dev_close(self.dev)
 		self.dev = None
 
 	def open(self):
+		"""Connects to the device."""
 		if self.dev:
 			raise "Device already open"
 		self.dev = pyf.fp_dev_open(self.dscv)
@@ -78,23 +86,42 @@ class Device:
 			raise "device open failed"
 
 	def get_driver(self):
+		"""
+		Return a Driver instance.
+
+		open() is not required before this method.
+		"""
 		if self.dev:
 			return Driver(pyf.fp_dev_get_driver(self.dev))
 		if self.dscv:
 			return Driver(pyf.fp_dscv_dev_get_driver(self.dscv))
 
 	def get_devtype(self):
+		"""
+		Return an integer representing the type of device.
+
+		open() is not required before this method.
+		"""
 		if self.dev:
 			return pyf.fp_dev_get_devtype(self.dev)
 		if self.dscv:
 			return pyf.fp_dscv_dev_get_devtype(self.dev)
 
 	def get_nr_enroll_stages(self):
+		"""
+		Return how many times enroll_finger needs to be called
+		before the finger is successfully enrolled.
+		"""
 		if self.dev:
 			return pyf.fp_dev_get_nr_enroll_stages(self.dev)
 		raise "Device not open"
 
 	def is_compatible(self, fprint):
+		"""
+		Checks whether the passed fprint is compatible with the device.
+
+		open() is not required before this method.
+		"""
 		if self.dev:
 			if fprint.data_ptr:
 				return pyf.fp_dev_supports_print_data(self.dev, fprint.data_ptr) == 1
@@ -110,16 +137,19 @@ class Device:
 		raise "No device found"
 
 	def get_supports_imaging(self):
+		"""If true, the device can return an image of the finger."""
 		if self.dev:
 			return pyf.fp_dev_supports_imaging(self.dev) == 1
 		raise "Device not open"
 
 	def get_img_width(self):
+		"""Return the width of the images scanned by the device, in pixels."""
 		if self.dev:
 			return pyf.fp_dev_get_img_width(self.dev)
 		raise "Device not open"
 
 	def get_img_height(self):
+		"""Return the height of the images scanned by the device, in pixels."""
 		if self.dev:
 			return pyf.fp_dev_get_img_height(self.dev)
 		raise "Device not open"
@@ -139,6 +169,7 @@ class Device:
 		return Image(img)
 
 	def enroll_finger(self):
+		"""FIXME: docstring, error handling"""
 		if not self.dev:
 			raise "Device not open"
 		(r, fprint, img) = pyf.pyfp_enroll_finger_img(self.dev)
@@ -168,6 +199,10 @@ class Device:
 		return ("xxx", None)
 
 	def verify_finger(self, fprint):
+		"""
+		Compare the finger on the device with the supplied Fprint.
+		Return true if the finger and the Fprint matches.
+		"""
 		if not self.dev:
 			raise "Device not open"
 		(r, img) = pyf.pyfp_verify_finger_img(self.dev, fprint._get_print_data_ptr())
@@ -189,14 +224,22 @@ class Device:
 		return (None, None)
 
 	def supports_identification(self):
+		"""Return True if the device supports the identify_finger method."""
 		if not self.dev:
 			raise "Device not open"
 		return pyf.fp_dev_supports_identification(self.dev) == 1
 
 	def identify_finger(self, fprints):
-		"""Returns a tuple: (list_offset, Fprint, Image) if a match is found,
-		(None, None, Image) otherwise. Image is None if the device doesn't
-		support imaging."""
+		"""
+		FIXME: error handling
+
+		Match the finger on the reader against a list of Fprints.
+
+		Return a tuple: (list_offset, Fprint, Image) if a match is found,
+		(None, None, Image) otherwise.
+
+		Image is None if the device doesn't support imaging.
+		"""
 
 		if not self.dev:
 			raise "Device not open"
@@ -224,6 +267,13 @@ class Device:
 		return None
 
 	def load_print_from_disk(self, finger):
+		"""
+		Load a stored fingerprint from the users home directory.
+
+		- finger should be a value from Fingers.
+
+		Return a Fprint.
+		"""
 		if not self.dev:
 			raise "Device not open"
 		(r, print_ptr) = pyf.fp_print_data_load(self.dev, finger)
@@ -232,6 +282,11 @@ class Device:
 		return Fprint(data_ptr = print_ptr)
 
 	def delete_stored_finger(self, finger):
+		"""
+		Delete a fingerprint stored in the users home directory
+
+		- finger should be a value from Fingers.
+		"""
 		if not self.dev:
 			raise "Device not open"
 		r = pyf.fp_print_data_delete(self.dev, finger)
@@ -239,13 +294,16 @@ class Device:
 			raise "delete failed"
 
 class Minutia(pyf.fp_minutia):
+	"""A single point of interest in a fingerprint."""
 	def __init__(self, minutia_ptr, img):
 		self.img = img
 		self.ptr = minutia_ptr
 		pyf.fp_minutia.__init__(self, minutia_ptr)
 
 class Image:
+	"""An image returned from the fingerprint reader."""
 	def __init__(self, img_ptr, bin = False):
+		"""Private method."""
 		self.img = img_ptr
 		self.bin = bin
 		self.std = False
@@ -256,14 +314,24 @@ class Image:
 			pyf.fp_img_free(self.img)
 
 	def get_height(self):
+		"""The height of the image in pixels."""
 		return pyf.fp_img_get_height(self.img)
 	def get_width(self):
+		"""The width of the image in pixels."""
 		return pyf.fp_img_get_width(self.img)
 
 	def get_data(self):
+		"""
+		FIXME: vector?
+		Return a vector containing one byte per pixel, representing a grayscale image.
+		"""
 		return pyf.pyfp_img_get_data(self.img)
 
 	def get_rgb_data(self):
+		"""
+		FIXME: vector?
+		Return a vector containing three bytes per pixel, representing a gray RGB image.
+		"""
 		return pyf.pyfp_img_get_rgb_data(self.img)
 
 	def save_to_file(self, path):
@@ -300,7 +368,9 @@ class Image:
 		return l
 
 class Driver:
+	"""Provides access to some information about a libfprint driver."""
 	def __init__(self, swig_drv_ptr):
+		"""Private."""
 		self.drv = swig_drv_ptr
 
 	def __del__(self):
@@ -308,16 +378,24 @@ class Driver:
 		pass
 
 	def get_name(self):
+		"""Return the driver name."""
 		return pyf.fp_driver_get_name(self.drv)
 
 	def get_full_name(self):
+		"""A longer, more desciptive version of the driver name."""
 		return pyf.fp_driver_get_full_name(self.drv)
 
 	def get_driver_id(self):
+		"""Return an integer uniqly identifying the driver."""
 		return pyf.fp_driver_get_driver_id(self.drv)
 
 class Fprint:
 	def __init__(self, serial_data = None, data_ptr = None, dscv_ptr = None, DscvList = None):
+		"""
+		The only parameter that should be used is serial_data, which
+		should be data previously aquired from get_data(), in the form of a string.
+		All other parameters are for internal use only.
+		"""
 		# data_ptr is a SWIG pointer to a struct pf_print_data
 		# dscv_ptr is a SWIG pointer to a struct pf_dscv_print
 		# DscvList is a class instance used to free the allocated pf_dscv_print's
@@ -346,6 +424,7 @@ class Fprint:
 		return self.data_ptr
 
 	def get_driver_id(self):
+		"""Return an integer identifing the driver used to scan this print."""
 		if self.data_ptr:
 			return pyf.fp_print_data_get_driver_id(self.data_ptr)
 		elif self.dscv_ptr:
@@ -353,6 +432,7 @@ class Fprint:
 		raise "no print"
 
 	def get_devtype(self):
+		"""Return an integer representing the type of device used to scan this print."""
 		if self.data_ptr:
 			return pyf.fp_print_data_get_devtype(self.data_ptr)
 		elif self.dscv_ptr:
@@ -360,16 +440,29 @@ class Fprint:
 		raise "no print"
 
 	def get_finger(self):
+		"""
+		If the Fprint was returned from discover_prints(), return
+		the Finger the Fprint represents. Otherwise raise an exception.
+		"""
 		if not self.dscv_ptr:
 			raise "get_finger needs a discovered print"
 		return pyf.fp_dscv_print_get_finger(self.dscv_ptr)
 
 	def delete_from_disk(self):
+		"""
+		If the Fprint was returned from discover_prints(), delete it
+		from the users home directory. Otherwise raise an exception.
+		"""
 		if not self.dscv_ptr:
 			raise "delete needs a discovered print"
 		return pyf.fp_dscv_print_delete(self.dscv_ptr)
 
 	def save_to_disk(self, finger):
+		"""Save the print to the users home directory.
+
+		- finger is a member of Fingers, indicating which
+		  finger this is.
+		"""
 		r = pyf.fp_print_data_save(self.data_ptr, finger)
 		if r != 0:
 			raise "save failed"
@@ -385,6 +478,11 @@ class Fprint:
 		self.data_ptr = ptr
 
 	def get_data(self):
+		"""
+		Return a serialized dataset representing the fprint.
+		This data could be stored away, and later passed to the
+		contructor of Fprint.
+		"""
 		if not self.data_ptr:
 			raise "no print"
 		s = pyf.pyfp_print_get_data(self.data_ptr)
@@ -393,6 +491,10 @@ class Fprint:
 		return s
 
 class DiscoveredPrints(list):
+	"""
+	A list of stored fingerprints available from the users
+	home directory.
+	"""
 	def __init__(self, dscv_devs_list):
 		self.ptr = dscv_devs_list
 		i = 0
@@ -406,6 +508,7 @@ class DiscoveredPrints(list):
 		pyf.pf_dscv_prints_free(self.ptr)
 
 def discover_prints():
+	"""Look for fingerprints in the users home directory ;)"""
 	if not _init_ok:
 		fp_init()
 
@@ -417,6 +520,7 @@ def discover_prints():
 
 
 class DiscoveredDevices(list):
+	"""A list of available devices."""
 	def __init__(self, dscv_devs_list):
 		self.swig_list_ptr = dscv_devs_list
 		i = 0
@@ -431,12 +535,17 @@ class DiscoveredDevices(list):
 		pyf.fp_dscv_devs_free(self.swig_list_ptr)
 
 	def find_compatible(self, fprint):
+		"""
+		Return a Device that is compatible with the fprint,
+		or None if no compatible device is found.
+		"""
 		for n in self:
 			if n.is_compatible(fprint):
 				return n
 		return None
 
 def discover_devices():
+	"""Return a list of available devices."""
 	if not _init_ok:
 		fp_init()
 

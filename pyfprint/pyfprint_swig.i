@@ -111,7 +111,6 @@ struct fp_minutia {
 		}
 	};
 };
-%ignore fp_minutia;
 
 /* Needed to get correct output from
    fp_dscv_print_get_driver_id and fp_dev_get_devtype */
@@ -127,7 +126,6 @@ void pyfp_print_get_data(char **print_data, int *len, struct fp_print_data *prin
 	*len = fp_print_data_get_data(print, (unsigned char**)print_data);
 }
 %}
-%ignore fp_print_data_get_data;
 
 /* Img.get_data() */
 %cstring_output_allocate_size(char **img_data, int *len, "");
@@ -138,7 +136,6 @@ void pyfp_img_get_data(char **img_data, int *len, struct fp_img *img)
 	*len = fp_img_get_width(img) * fp_img_get_height(img);
 }
 %}
-%ignore fp_img_get_data;
 
 /* Image.get_rgb_data() */
 %cstring_output_allocate_size(char **img_rgb_data, int *len, free(*($1)));
@@ -192,13 +189,58 @@ int pyfp_dev_img_capture(struct fp_dev *dev, int unconditional, struct fp_img **
 	return ret;
 }
 %}
-%ignore fp_enroll_finger_img;
-%ignore fp_enroll_finger;
-%ignore fp_verify_finger_img;
-%ignore fp_verify_finger;
-%ignore fp_identify_finger_img;
-%ignore fp_identify_finger;
-%ignore fp_dev_img_capture;
+
+/* Device.identify_finger() */
+%inline %{
+struct pyfp_print_data_array {
+	size_t size;
+	size_t used;
+	struct fp_print_data * list[0];
+};
+%}
+%extend pyfp_print_data_array {
+	pyfp_print_data_array(size_t size)
+	{
+		struct pyfp_print_data_array *x;
+		x = calloc(1, sizeof(struct pyfp_print_data_array) +
+				sizeof(struct fp_print_data *) * (size + 1)); /* +1 for NULL termination */
+		x->size = size;
+		return x;
+	}
+	~pyfp_print_data_array()
+	{
+		free($self);
+	}
+	void append(struct fp_print_data *print)
+	{
+		if ($self->size <= $self->used) {
+			PyErr_SetString(PyExc_OverflowError, "programming error: pyfp_print_data_array list overflow");
+			return;
+		}
+		$self->list[$self->used] = print;
+		$self->used++;
+	}
+	struct fp_print_data ** pyfp_print_data_array_list_get()
+	{
+		return $self->list;
+	}
+};
+
+%inline %{
+
+/* DiscoveredDevices.__init__() */
+struct fp_dscv_dev * pyfp_deref_dscv_dev_ptr (struct fp_dscv_dev **ptr, int i)
+{
+	return ptr[i];
+}
+
+/* class DiscoveredPrints(list): */
+struct fp_dscv_print * pyfp_deref_dscv_print_ptr(struct fp_dscv_print **ptr, int i)
+{
+	return ptr[i];
+}
+
+%}
 
 /* --- partial copy of <libfprint/fprint.h> --- */
 
@@ -291,8 +333,6 @@ int fp_dev_supports_print_data(struct fp_dev *dev, struct fp_print_data *data);
 int fp_dev_supports_dscv_print(struct fp_dev *dev, struct fp_dscv_print *print);
 
 int fp_dev_supports_imaging(struct fp_dev *dev);
-int fp_dev_img_capture(struct fp_dev *dev, int unconditional,
-	struct fp_img **image);
 int fp_dev_get_img_width(struct fp_dev *dev);
 int fp_dev_get_img_height(struct fp_dev *dev);
 
@@ -328,26 +368,6 @@ enum fp_enroll_result {
 	FP_ENROLL_RETRY_REMOVE_FINGER,
 };
 
-int fp_enroll_finger_img(struct fp_dev *dev, struct fp_print_data **print_data,
-	struct fp_img **img);
-
-/** \ingroup dev
- * Performs an enroll stage. See \ref enrolling for an explanation of enroll
- * stages. This function is just a shortcut to calling fp_enroll_finger_img()
- * with a NULL image parameter. Be sure to read the description of
- * fp_enroll_finger_img() in order to understand its behaviour.
- *
- * \param dev the device
- * \param print_data a location to return the resultant enrollment data from
- * the final stage. Must be freed with fp_print_data_free() after use.
- * \return negative code on error, otherwise a code from #fp_enroll_result
- */
-static inline int fp_enroll_finger(struct fp_dev *dev,
-	struct fp_print_data **print_data)
-{
-	return fp_enroll_finger_img(dev, print_data, NULL);
-}
-
 /** \ingroup dev
  * Verification result codes returned from fp_verify_finger(). Return codes
  * are also shared with fp_identify_finger().
@@ -378,50 +398,7 @@ enum fp_verify_result {
 	FP_VERIFY_RETRY_REMOVE_FINGER = FP_ENROLL_RETRY_REMOVE_FINGER,
 };
 
-int fp_verify_finger_img(struct fp_dev *dev,
-	struct fp_print_data *enrolled_print, struct fp_img **img);
-
-/** \ingroup dev
- * Performs a new scan and verify it against a previously enrolled print. This
- * function is just a shortcut to calling fp_verify_finger_img() with a NULL
- * image output parameter.
- * \param dev the device to perform the scan.
- * \param enrolled_print the print to verify against. Must have been previously
- * enrolled with a device compatible to the device selected to perform the scan.
- * \return negative code on error, otherwise a code from #fp_verify_result
- * \sa fp_verify_finger_img()
- */
-static inline int fp_verify_finger(struct fp_dev *dev,
-	struct fp_print_data *enrolled_print)
-{
-	return fp_verify_finger_img(dev, enrolled_print, NULL);
-}
-
 int fp_dev_supports_identification(struct fp_dev *dev);
-int fp_identify_finger_img(struct fp_dev *dev,
-	struct fp_print_data **print_gallery, size_t *match_offset,
-	struct fp_img **img);
-
-/** \ingroup dev
- * Performs a new scan and attempts to identify the scanned finger against a
- * collection of previously enrolled fingerprints. This function is just a
- * shortcut to calling fp_identify_finger_img() with a NULL image output
- * parameter.
- * \param dev the device to perform the scan.
- * \param print_gallery NULL-terminated array of pointers to the prints to
- * identify against. Each one must have been previously enrolled with a device
- * compatible to the device selected to perform the scan.
- * \param match_offset output location to store the array index of the matched
- * gallery print (if any was found). Only valid if FP_VERIFY_MATCH was
- * returned.
- * \return negative code on error, otherwise a code from #fp_verify_result
- * \sa fp_identify_finger_img()
- */
-static inline int fp_identify_finger(struct fp_dev *dev,
-	struct fp_print_data **print_gallery, size_t *match_offset)
-{
-	return fp_identify_finger_img(dev, print_gallery, match_offset, NULL);
-}
 
 /* Data handling */
 int fp_print_data_load(struct fp_dev *dev, enum fp_finger finger,
@@ -431,7 +408,6 @@ int fp_print_data_from_dscv_print(struct fp_dscv_print *print,
 int fp_print_data_save(struct fp_print_data *data, enum fp_finger finger);
 int fp_print_data_delete(struct fp_dev *dev, enum fp_finger finger);
 void fp_print_data_free(struct fp_print_data *data);
-size_t fp_print_data_get_data(struct fp_print_data *data, unsigned char **ret);
 struct fp_print_data *fp_print_data_from_data(unsigned char *buf,
 	size_t buflen);
 uint16_t fp_print_data_get_driver_id(struct fp_print_data *data);
@@ -439,26 +415,8 @@ uint32_t fp_print_data_get_devtype(struct fp_print_data *data);
 
 /* Image handling */
 
-/** \ingroup img */
-/*
-struct fp_minutia {
-	int x;
-	int y;
-	int ex;
-	int ey;
-	int direction;
-	double reliability;
-	int type;
-	int appearing;
-	int feature_id;
-	int *nbrs;
-	int *ridge_counts;
-	int num_nbrs;
-};
-*/
 int fp_img_get_height(struct fp_img *img);
 int fp_img_get_width(struct fp_img *img);
-unsigned char *fp_img_get_data(struct fp_img *img);
 int fp_img_save_to_file(struct fp_img *img, char *path);
 void fp_img_standardize(struct fp_img *img);
 struct fp_img *fp_img_binarize(struct fp_img *img);
@@ -469,59 +427,4 @@ void fp_img_free(struct fp_img *img);
 int fp_init(void);
 void fp_exit(void);
 
-
 /* -------- END OF COPY ---------- */
-
-
-/* Device.identify_finger() */
-%inline %{
-struct pyfp_print_data_array {
-	size_t size;
-	size_t used;
-	struct fp_print_data * list[0];
-};
-%}
-%extend pyfp_print_data_array {
-	pyfp_print_data_array(size_t size)
-	{
-		struct pyfp_print_data_array *x;
-		x = calloc(1, sizeof(struct pyfp_print_data_array) +
-				sizeof(struct fp_print_data *) * (size + 1)); /* +1 for NULL termination */
-		x->size = size;
-		return x;
-	}
-	~pyfp_print_data_array()
-	{
-		free($self);
-	}
-	void append(struct fp_print_data *print)
-	{
-		if ($self->size <= $self->used) {
-			PyErr_SetString(PyExc_OverflowError, "programming error: pyfp_print_data_array list overflow");
-			return;
-		}
-		$self->list[$self->used] = print;
-		$self->used++;
-	}
-	struct fp_print_data ** pyfp_print_data_array_list_get()
-	{
-		return $self->list;
-	}
-};
-
-%inline %{
-
-/* DiscoveredDevices.__init__() */
-struct fp_dscv_dev * pyfp_deref_dscv_dev_ptr (struct fp_dscv_dev **ptr, int i)
-{
-	return ptr[i];
-}
-
-/* class DiscoveredPrints(list): */
-struct fp_dscv_print * pyfp_deref_dscv_print_ptr(struct fp_dscv_print **ptr, int i)
-{
-	return ptr[i];
-}
-
-
-%}

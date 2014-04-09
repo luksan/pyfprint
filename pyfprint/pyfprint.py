@@ -189,7 +189,7 @@ class Device:
 			_dbg("enroll complete")
 			return (Fprint(data_ptr = fprint), img)
 		if r == pyf.FP_ENROLL_FAIL:
-			print "Failed. Enrollmet process reset."
+			print("Failed. Enrollmet process reset.")
 		if r == pyf.FP_ENROLL_PASS:
 			_dbg("enroll PASS")
 			return (None, img)
@@ -541,7 +541,7 @@ def discover_prints():
 	prints = pyf.fp_discover_prints()
 
 	if not prints:
-		print "Print discovery failed"
+		print("Print discovery failed")
 	return DiscoveredPrints(prints)
 
 

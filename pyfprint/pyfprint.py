@@ -19,7 +19,7 @@
 #    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
 ############################################################################
 
-import pyfprint_swig as pyf
+import pyfprint.pyfprint_swig as pyf
 
 # TODO:
 #	exceptions, especially for RETRY_* errors

@@ -21,4 +21,4 @@ __all__ = [
 	"Minutia",
 ]
 
-from pyfprint import *
+from .pyfprint import *

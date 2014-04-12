@@ -16,5 +16,5 @@ if dev.supports_imaging():
 else:
     print("this device does not have imaging capabilities.")
 dev.close()
-    
+
 pyfprint.fp_exit()

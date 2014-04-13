@@ -184,60 +184,80 @@ class Device:
         return img
 
     def enroll_finger(self):
-        """FIXME: docstring, error handling"""
+        """Enroll a finger
+        
+        Returns
+        -------
+        fprint : Fprint
+            the enrolled fingerprint
+        img : Image    
+            the enrolled image
+        """
         if not self.dev:
             raise "Device not open"
-        (r, fprint, img) = pyf.pyfp_enroll_finger_img(self.dev)
-        img = Image(img)
-        if r < 0:
-            raise "Internal I/O error while enrolling: %i" % i
-        if r == pyf.FP_ENROLL_COMPLETE:
-            _dbg("enroll complete")
-            return (Fprint(data_ptr=fprint), img)
-        if r == pyf.FP_ENROLL_FAIL:
-            print("Failed. Enrollmet process reset.")
-        if r == pyf.FP_ENROLL_PASS:
-            _dbg("enroll PASS")
-            return (None, img)
-        if r == pyf.FP_ENROLL_RETRY:
-            _dbg("enroll RETRY")
-            pass
-        if r == pyf.FP_ENROLL_RETRY_TOO_SHORT:
-            _dbg("enroll RETRY_SHORT")
-            pass
-        if r == pyf.FP_ENROLL_RETRY_CENTER_FINGER:
-            _dbg("enroll RETRY_CENTER")
-            pass
-        if r == pyf.FP_ENROLL_RETRY_REMOVE_FINGER:
-            _dbg("enroll RETRY_REMOVE")
-            pass
-        return ("xxx", None)
+        r = pyf.FP_ENROLL_RETRY
+        while r != pyf.FP_ENROLL_COMPLETE:
+            r, fprint, img = pyf.pyfp_enroll_finger_img(self.dev)
+            if r < 0:
+                raise "Internal I/O error while enrolling: %i" % i
+            img = Image(img)
+            if r == pyf.FP_ENROLL_COMPLETE:
+                _dbg("enroll complete")
+            if r == pyf.FP_ENROLL_FAIL:
+                print("Failed. Enrollment process reset.")
+                return None, img
+            if r == pyf.FP_ENROLL_PASS:
+                _dbg("enroll PASS")
+                pass
+            if r == pyf.FP_ENROLL_RETRY:
+                _dbg("enroll RETRY")
+                pass
+            if r == pyf.FP_ENROLL_RETRY_TOO_SHORT:
+                _dbg("enroll RETRY_SHORT")
+                pass
+            if r == pyf.FP_ENROLL_RETRY_CENTER_FINGER:
+                _dbg("enroll RETRY_CENTER")
+                pass
+            if r == pyf.FP_ENROLL_RETRY_REMOVE_FINGER:
+                _dbg("enroll RETRY_REMOVE")
+                pass
+        return Fprint(data_ptr=fprint), img
 
     def verify_finger(self, fprint):
         """
         Compare the finger on the device with the supplied Fprint.
-        Return true if the finger and the Fprint matches.
+        
+        Parameters
+        ----------
+        fprint : Fprint
+            The fingerprint to match
+        
+        Returns
+        -------
+        verified : bool
+            true if the finger and the Fprint match
         """
         if not self.dev:
             raise "Device not open"
-        (r, img) = pyf.pyfp_verify_finger_img(
-            self.dev, fprint._get_print_data_ptr())
-        img = Image(img)
-        if r < 0:
-            raise "verify error: %i" % r
-        if r == pyf.FP_VERIFY_NO_MATCH:
-            return (False, img)
-        if r == pyf.FP_VERIFY_MATCH:
-            return (True, img)
-        if r == pyf.FP_VERIFY_RETRY:
-            pass
-        if r == pyf.FP_VERIFY_RETRY_TOO_SHORT:
-            pass
-        if r == pyf.FP_VERIFY_RETRY_CENTER_FINGER:
-            pass
-        if r == pyf.FP_VERIFY_RETRY_REMOVE_FINGER:
-            pass
-        return (None, None)
+        while True:
+            r, img = pyf.pyfp_verify_finger_img(
+                self.dev, fprint._get_print_data_ptr())
+            img = Image(img)
+            if r < 0:
+                raise "verify error: %i" % r
+            if r == pyf.FP_VERIFY_NO_MATCH:
+                return False, img
+            if r == pyf.FP_VERIFY_MATCH:
+                return True, img
+            if r == pyf.FP_VERIFY_RETRY:
+                pass
+            if r == pyf.FP_VERIFY_RETRY_TOO_SHORT:
+                pass
+            if r == pyf.FP_VERIFY_RETRY_CENTER_FINGER:
+                pass
+            if r == pyf.FP_VERIFY_RETRY_REMOVE_FINGER:
+                pass
+        return False, None
 
     def supports_identification(self):
         """Return True if the device supports the identify_finger method."""

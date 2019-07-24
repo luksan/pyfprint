@@ -52,7 +52,7 @@
     $1 = &data;
 }
 
-/* fp_print_data_load, fp_print_data_from_dscv_print */
+/* fp_print_data_load */
 %apply struct fp_print_data **print_data { struct fp_print_data **data };
 
 /* fp_identify_finger */
@@ -89,10 +89,9 @@ struct fp_minutia * pyfp_deref_minutiae(struct fp_minutia **ptr, int i)
 %}
 
 
-/* Needed to get correct output from
-   fp_dscv_print_get_driver_id and fp_dev_get_devtype */
+/* Needed to get correct output from fp_dscv_dev_get_devtype */
 typedef unsigned int uint32_t;
-/* fp_driver_get_driver_id, fp_dscv_print_get_driver_id, fp_print_data_get_driver_id*/
+/* fp_driver_get_driver_id, fp_print_data_get_driver_id*/
 typedef unsigned short int uint16_t;
 
 /* Fprint.get_data() */
@@ -280,25 +279,11 @@ struct fp_driver *fp_dscv_dev_get_driver(struct fp_dscv_dev *dev);
 uint32_t fp_dscv_dev_get_devtype(struct fp_dscv_dev *dev);
 int fp_dscv_dev_supports_print_data(struct fp_dscv_dev *dev,
 	struct fp_print_data *print);
-int fp_dscv_dev_supports_dscv_print(struct fp_dscv_dev *dev,
-	struct fp_dscv_print *print);
-struct fp_dscv_dev *fp_dscv_dev_for_print_data(struct fp_dscv_dev **devs,
-	struct fp_print_data *print);
-struct fp_dscv_dev *fp_dscv_dev_for_dscv_print(struct fp_dscv_dev **devs,
-	struct fp_dscv_print *print);
 
 static inline uint16_t fp_dscv_dev_get_driver_id(struct fp_dscv_dev *dev)
 {
 	return fp_driver_get_driver_id(fp_dscv_dev_get_driver(dev));
 }
-
-/* Print discovery */
-struct fp_dscv_print **fp_discover_prints(void);
-void fp_dscv_prints_free(struct fp_dscv_print **prints);
-uint16_t fp_dscv_print_get_driver_id(struct fp_dscv_print *print);
-uint32_t fp_dscv_print_get_devtype(struct fp_dscv_print *print);
-enum fp_finger fp_dscv_print_get_finger(struct fp_dscv_print *print);
-int fp_dscv_print_delete(struct fp_dscv_print *print);
 
 /* Device handling */
 struct fp_dev *fp_dev_open(struct fp_dscv_dev *ddev);
@@ -307,11 +292,11 @@ struct fp_driver *fp_dev_get_driver(struct fp_dev *dev);
 int fp_dev_get_nr_enroll_stages(struct fp_dev *dev);
 uint32_t fp_dev_get_devtype(struct fp_dev *dev);
 int fp_dev_supports_print_data(struct fp_dev *dev, struct fp_print_data *data);
-int fp_dev_supports_dscv_print(struct fp_dev *dev, struct fp_dscv_print *print);
 
 int fp_dev_supports_imaging(struct fp_dev *dev);
 int fp_dev_get_img_width(struct fp_dev *dev);
 int fp_dev_get_img_height(struct fp_dev *dev);
+
 
 /** \ingroup dev
  * Enrollment result codes returned from fp_enroll_finger().
@@ -380,11 +365,10 @@ int fp_dev_supports_identification(struct fp_dev *dev);
 /* Data handling */
 int fp_print_data_load(struct fp_dev *dev, enum fp_finger finger,
 	struct fp_print_data **data);
-int fp_print_data_from_dscv_print(struct fp_dscv_print *print,
-	struct fp_print_data **data);
 int fp_print_data_save(struct fp_print_data *data, enum fp_finger finger);
 int fp_print_data_delete(struct fp_dev *dev, enum fp_finger finger);
 void fp_print_data_free(struct fp_print_data *data);
+size_t fp_print_data_get_data(struct fp_print_data *data, unsigned char **ret);
 struct fp_print_data *fp_print_data_from_data(unsigned char *buf,
 	size_t buflen);
 uint16_t fp_print_data_get_driver_id(struct fp_print_data *data);

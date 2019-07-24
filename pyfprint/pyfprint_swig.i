@@ -76,6 +76,9 @@
 %newobject pyfp_alloc_print_data_array;
 %newobject fp_dev_open;
 
+/* fp_minutia is an opaque structure type. */
+struct fp_minutia {};
+
 /* Image.get_minutiae() */
 %inline %{
 struct fp_minutia * pyfp_deref_minutiae(struct fp_minutia **ptr, int i)
@@ -84,33 +87,7 @@ struct fp_minutia * pyfp_deref_minutiae(struct fp_minutia **ptr, int i)
 }
 
 %}
-/* The struct needs to be redefined as const, otherwise swig will generate _set_ methods for the members. */
-struct fp_minutia {
-	const int x;
-	const int y;
-	const int ex;
-	const int ey;
-	const int direction;
-	const double reliability;
-	const int type;
-	const int appearing;
-	const int feature_id;
-	int * const nbrs;
-	int * const ridge_counts;
-	const int num_nbrs;
 
-	%extend {
-		/* A constructor that accepts pre-allocated structs */
-		fp_minutia(struct fp_minutia *ptr)
-		{
-			return ptr;
-		}
-		~fp_minutia()
-		{
-			/* Don't free() fp_minutia *. They are free'd together with the fp_img. */ ;
-		}
-	};
-};
 
 /* Needed to get correct output from
    fp_dscv_print_get_driver_id and fp_dev_get_devtype */
